@@ -82,7 +82,6 @@ explicit = true
 langflow-base = { workspace = true }
 langflow = { workspace = true }
 lfx = { workspace = true }
-OpenDsStar = { workspace = true }
 torch = { index = "pytorch-cpu" }
 torchvision = { index = "pytorch-cpu" }
 
@@ -91,7 +90,6 @@ members = [
     "src/backend/base",
     ".",
     "src/lfx",
-    "OpenDsStar-fork",
 ]
 
 [tool.hatch.build.targets.wheel]
