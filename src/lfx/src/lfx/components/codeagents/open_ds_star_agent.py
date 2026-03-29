@@ -518,7 +518,8 @@ class OpenDsStarAgentComponent(ToolCallingAgentComponent):
                             last_event_time = current_time
 
                         exec_logger.debug("trajectory event node=%s step=%s", node_name, step_idx)
-                        event_type = event.get("event_type", "")
+                        raw_event_type = event.get("event_type", "")
+                        event_type = raw_event_type.strip() if isinstance(raw_event_type, str) else raw_event_type
                         event_note = event.get("note", "")
                         plan = event.get("planned_step", "")
                         code = event.get("code", "")
@@ -569,8 +570,9 @@ class OpenDsStarAgentComponent(ToolCallingAgentComponent):
                         node_tool_input = {
                             "step_idx": step_idx,
                             "node": node_name,
-                            "event_type": event_type,
                         }
+                        if event_type:
+                            node_tool_input["event_type"] = event_type
                         if event_note:
                             node_tool_input["note"] = truncate_text(str(event_note), 2000)
                         if plan and plan.strip():
@@ -851,34 +853,13 @@ class OpenDsStarAgentComponent(ToolCallingAgentComponent):
             ValueError: If no language model is connected
         """
         try:
-            # Import from the installed OpenDsStar package
-            try:
-                from agents.ds_star.open_ds_star_agent import OpenDsStarAgent
-            except ImportError:
-                # Debugging info
-                import os
-                import sys
-
-                print("DEBUG: sys.path:", sys.path)
-                print("DEBUG: CWD:", os.getcwd())
-                try:
-                    import agents
-
-                    print("DEBUG: found agents module at:", agents.__file__)
-                except ImportError:
-                    print("DEBUG: could not import agents module")
-
-                # Retry or re-raise
-                from agents.ds_star.open_ds_star_agent import OpenDsStarAgent
-
+            from OpenDsStar.agents.ds_star.open_ds_star_agent import OpenDsStarAgent
         except ImportError as e:
-            # Provide helpful error message
             error_msg = (
                 f"Cannot import OpenDsStarAgent. Please ensure OpenDsStar is properly installed.\n"
-                f"Run: uv pip install -e /path/to/OpenDsStar\n"
+                f"Run: uv pip install OpenDsStar\n"
                 f"Error: {e}"
             )
-            # Re-raise to show the error in the UI
             raise ImportError(error_msg) from e
 
         # Validate that LLM is connected
@@ -977,6 +958,3 @@ class OpenDsStarAgentComponent(ToolCallingAgentComponent):
 
         # Wrap in runnable interface for LangChain compatibility
         return OpenDsStarAgentRunnable(agent)
-
-    def get_chat_history_data(self) -> list[Data] | None:
-        return self.chat_history
