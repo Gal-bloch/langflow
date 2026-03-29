@@ -571,6 +571,30 @@ class OpenDsStarAgentComponent(ToolCallingAgentComponent):
                             "node": node_name,
                             "event_type": event_type,
                         }
+                        if event_note:
+                            node_tool_input["note"] = truncate_text(str(event_note), 2000)
+                        if plan and plan.strip():
+                            node_tool_input["planned_step"] = truncate_text(plan.strip(), 4000)
+                        if code and code.strip():
+                            node_tool_input["code"] = truncate_text(code.strip(), 4000)
+                        if is_execute_node and logs and logs.strip():
+                            node_tool_input["logs"] = truncate_text(clean_logs(logs), 2000)
+                        if verification_result is not None:
+                            node_tool_input["verification_result"] = verification_result
+                        if verifier_sufficient is not None:
+                            node_tool_input["sufficient"] = verifier_sufficient
+                        if verifier_explanation and verifier_explanation.strip():
+                            node_tool_input["verifier_explanation"] = truncate_text(verifier_explanation.strip(), 2000)
+                        if router_action and router_action.strip():
+                            node_tool_input["router_action"] = router_action
+                        if router_explanation and router_explanation.strip():
+                            node_tool_input["router_explanation"] = truncate_text(router_explanation.strip(), 2000)
+                        if fix_idx is not None:
+                            node_tool_input["fix_index"] = fix_idx
+                        if finalizer and finalizer.strip():
+                            node_tool_input["finalizer"] = truncate_text(finalizer.strip(), 2000)
+                        if fatal_error and fatal_error.strip():
+                            node_tool_input["fatal_error"] = truncate_text(fatal_error.strip(), 2000)
                         agent_message.content_blocks[0].contents.append(
                             ToolContent(
                                 type="tool_use",
