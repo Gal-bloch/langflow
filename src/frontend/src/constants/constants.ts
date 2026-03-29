@@ -808,6 +808,8 @@ export const BUNDLES_SIDEBAR_FOLDER_NAMES = [
   "cassandra",
   "FAISS",
   "pgvector",
+  "codeagents",
+  "Code Agents",
 ];
 
 export const AUTHORIZED_DUPLICATE_REQUESTS = [

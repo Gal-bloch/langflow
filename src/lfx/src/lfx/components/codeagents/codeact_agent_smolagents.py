@@ -1,0 +1,589 @@
+import time
+from collections.abc import AsyncIterator, Iterator
+from typing import Any, ClassVar
+
+from langchain_core.runnables import Runnable, RunnableConfig
+
+from lfx.components.langchain_utilities.tool_calling import ToolCallingAgentComponent
+from lfx.inputs.inputs import BoolInput, DataInput, DropdownInput, MessageTextInput, MultilineInput
+from lfx.io import HandleInput, IntInput
+from lfx.schema.message import Message
+from lfx.template.field.base import RangeSpec
+
+
+class CodeActAgentSmolagentsRunnable(Runnable):
+    """Runnable wrapper for CodeActAgentSmolagents.
+
+    This wrapper makes CodeActAgentSmolagents compatible with LangChain's Runnable interface,
+    allowing it to be used in AgentExecutor and other LangChain workflows.
+    """
+
+    def __init__(self, agent):
+        """Initialize the runnable wrapper.
+
+        Args:
+            agent: An instance of CodeActAgentSmolagents
+        """
+        super().__init__()
+        self.agent = agent
+        self.start_time = None
+
+    def invoke(
+        self,
+        input: dict[str, Any] | str,
+        config: RunnableConfig | None = None
+    ) -> dict[str, Any]:
+        """Invoke the CodeActAgentSmolagents synchronously.
+
+        Args:
+            input: Either a dict with "input" key or a string query
+            config: Optional LangChain runnable configuration
+
+        Returns:
+            Dict with "output" key containing the agent's answer
+        """
+        # Extract the input message
+        if isinstance(input, dict) and "input" in input:
+            query = input["input"]
+        elif isinstance(input, str):
+            query = input
+        else:
+            query = str(input)
+
+        # Invoke the agent (config is passed through if provided)
+        result = self.agent.invoke(query, config=config)
+
+        # Return in the expected format for LangChain
+        # The agent returns a dict with 'answer', 'trajectory', etc.
+        # We return only the final answer in the output, trajectory goes to content blocks
+        output_text = result.get("answer", "")
+
+        return {"output": output_text, "_result": result}
+
+    async def ainvoke(
+        self,
+        input: dict[str, Any] | str,
+        config: RunnableConfig | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Async invoke - currently just calls sync version.
+
+        Note: CodeActAgentSmolagents doesn't have native async support yet,
+        so this is a synchronous implementation wrapped as async.
+        """
+        return self.invoke(input, config)
+
+    def stream(
+        self,
+        input: dict[str, Any] | str,
+        config: RunnableConfig | None = None,
+        **kwargs: Any,
+    ) -> Iterator[dict[str, Any]]:
+        """Stream the agent output step-by-step.
+
+        Uses CodeActAgentSmolagents' stream_invoke to yield intermediate steps.
+        """
+        # Extract the input message
+        if isinstance(input, dict) and "input" in input:
+            query = input["input"]
+        elif isinstance(input, str):
+            query = input
+        else:
+            query = str(input)
+
+        # Stream from the agent
+        for event in self.agent.stream_invoke(query, config=config):
+            # Yield each event as it arrives
+            yield event
+
+    async def astream(
+        self,
+        input: dict[str, Any] | str,
+        config: RunnableConfig | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Async stream the agent output step-by-step.
+
+        Currently wraps the sync stream in async context.
+        """
+        # Extract the input message
+        if isinstance(input, dict) and "input" in input:
+            query = input["input"]
+        elif isinstance(input, str):
+            query = input
+        else:
+            query = str(input)
+
+        # Stream from the agent (wrapped in async)
+        import asyncio
+        for event in self.agent.stream_invoke(query, config=config):
+            yield event
+            # Allow other async tasks to run
+            await asyncio.sleep(0)
+
+
+class CodeActAgentSmolagentsComponent(ToolCallingAgentComponent):
+    code_class_base_inheritance: ClassVar[str] = "Component"
+    display_name: str = "CodeAct Agent (Smolagents)"
+    description: str = "A code-based agent using smolagents CodeAgent for complex tasks."
+    documentation: str = "https://github.com/IBM/OpenDsStar"
+    icon = "bot"
+    beta = True
+    name = "CodeActAgentSmolagents"
+
+    inputs = [
+        MessageTextInput(
+            name="input_value",
+            display_name="Input",
+            info="Message or query to send to the agent",
+            tool_mode=True,
+        ),
+        HandleInput(
+            name="llm",
+            display_name="Language Model",
+            input_types=["LanguageModel"],
+            required=True,
+            info="Language model to use for the CodeAct agent",
+        ),
+        HandleInput(
+            name="tools",
+            display_name="Tools",
+            input_types=["Tool"],
+            is_list=True,
+            required=False,
+            info="These are the tools that the agent can use to help with tasks.",
+        ),
+        IntInput(
+            name="max_iterations",
+            display_name="Max Iterations",
+            value=5,
+            advanced=True,
+            range_spec=RangeSpec(min=1, max=50, step=1),
+        ),
+        MessageTextInput(
+            name="system_prompt",
+            display_name="System Message",
+            info="System message to customize agent behavior",
+            advanced=True,
+        ),
+        IntInput(
+            name="code_timeout",
+            display_name="Code Timeout (seconds)",
+            value=30,
+            advanced=True,
+            range_spec=RangeSpec(min=5, max=300, step=5),
+            info="Maximum time in seconds for each code execution step. If code takes longer, it will be terminated.",
+        ),
+        DropdownInput(
+            name="show_code_steps",
+            display_name="Show Code Steps",
+            options=["All Steps", "Final Code Only", "None"],
+            value="All Steps",
+            info="Display coding steps: 'All Steps' shows each code generation and execution, 'Final Code Only' shows only the last successful code, 'None' hides all code steps",
+        ),
+        BoolInput(
+            name="handle_parsing_errors",
+            display_name="Handle Parse Errors",
+            value=True,
+            advanced=True,
+            info="Should the Agent fix errors when reading user input for better processing?",
+        ),
+        BoolInput(name="verbose", display_name="Verbose", value=True, advanced=True),
+        DataInput(
+            name="chat_history",
+            display_name="Chat Memory",
+            is_list=True,
+            advanced=True,
+            info="This input stores the chat history, allowing the agent to remember previous conversations.",
+        ),
+        MultilineInput(
+            name="agent_description",
+            display_name="Agent Description",
+            info="The description of the agent. This is only used when in Tool Mode.",
+            advanced=True,
+            value="A helpful assistant with access to the following tools:",
+        ),
+    ]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.start_time = None
+
+    async def message_response(self) -> Message:
+        """Run the agent and return the response.
+
+        Override parent to ensure tools are properly loaded before building the agent.
+        This is critical because tools need to be available when build_agent() is called.
+        """
+        # Ensure tools are initialized (convert None to empty list)
+        if not hasattr(self, "tools") or self.tools is None:
+            self.tools = []
+
+        # Set shared callbacks for tracing the tools used by the agent
+        if self.tools:
+            self.set_tools_callbacks(self.tools, self._get_shared_callbacks())
+
+        # Call build_agent() which returns the agent runnable
+        agent = self.build_agent()
+
+        # Run the agent and return the message
+        message = await self.run_agent(agent=agent)
+
+        self.status = message
+        return message
+
+    def build_agent(self) -> Runnable:  # type: ignore
+        """Build the CodeActAgentSmolagents.
+
+        Override parent's build_agent to return the CodeActAgentSmolagents runnable directly.
+        We return a Runnable (not AgentExecutor) because CodeActAgentSmolagents has its own
+        execution logic via smolagents and doesn't need AgentExecutor's wrapping.
+
+        The parent's run_agent() method can handle a Runnable directly.
+
+        Returns:
+            Runnable: The CodeActAgentSmolagentsRunnable
+        """
+        # Validate tool names first
+        self.validate_tool_names()
+
+        # Create and return the CodeActAgentSmolagents runnable directly
+        agent_runnable = self.create_agent_runnable()
+
+        return agent_runnable
+
+    async def run_agent(self, agent: Runnable) -> Message:
+        """Override parent's run_agent to stream trajectory updates directly.
+
+        Similar to OpenDsStarAgent, we stream code generation and execution steps
+        as they happen, providing real-time feedback to the user.
+        """
+        import asyncio
+        import logging
+        import uuid
+
+        from lfx.base.agents.utils import get_chat_output_sender_name
+        from lfx.schema.content_block import ContentBlock
+        from lfx.schema.content_types import CodeContent, TextContent
+        from lfx.schema.message import Message
+        from lfx.utils.constants import MESSAGE_SENDER_AI
+
+        logger = logging.getLogger(__name__)
+        logger.info("=" * 80)
+        logger.info("run_agent called for CodeActAgentSmolagents with streaming")
+        logger.info("=" * 80)
+
+        # Get input value
+        if isinstance(self.input_value, Message):
+            lc_message = self.input_value.to_lc_message()
+            if hasattr(lc_message, "content"):
+                if isinstance(lc_message.content, str):
+                    input_text = lc_message.content
+                else:
+                    input_text = str(lc_message.content)
+            else:
+                input_text = str(lc_message)
+        else:
+            input_text = str(self.input_value)
+
+        if not input_text:
+            raise ValueError("Input text is empty")
+
+        logger.info(f"Input text: {input_text[:100]}...")
+
+        # Create initial message
+        sender_name = get_chat_output_sender_name(self) or self.display_name or "AI"
+        if hasattr(self, "graph"):
+            session_id = self.graph.session_id
+        elif hasattr(self, "_session_id"):
+            session_id = self._session_id
+        else:
+            session_id = uuid.uuid4()
+
+        agent_message = Message(
+            sender=MESSAGE_SENDER_AI,
+            sender_name=sender_name,
+            text="",
+            properties={"icon": "Bot", "state": "partial"},
+            content_blocks=[ContentBlock(title="Agent Steps", contents=[])],
+            session_id=session_id,
+        )
+
+        # Send initial message
+        agent_message = await self.send_message(message=agent_message)
+
+        # Get show_code_steps setting
+        show_code_steps = getattr(self, "show_code_steps", "All Steps")
+
+        # Track code contents for "Final Code Only" mode
+        code_contents = []
+        final_answer = ""
+
+        try:
+            logger.info("Starting streaming from CodeActAgentSmolagents")
+
+            # Record start time and last-event time for per-step delta duration
+            self.start_time = time.time()
+            last_event_time = self.start_time
+
+            # Get the actual agent from the runnable wrapper
+            actual_agent = agent.agent if hasattr(agent, "agent") else agent
+
+            # Create the stream generator
+            stream_gen = actual_agent.stream_invoke(input_text)
+
+            # Process events using asyncio.to_thread to avoid blocking
+            # This is critical for real-time updates in Langflow
+            while True:
+                try:
+                    # Get next event in a non-blocking way
+                    event_data = await asyncio.to_thread(next, stream_gen, StopIteration)
+                    if event_data is StopIteration:
+                        break
+                except StopIteration:
+                    break
+
+                event = event_data.get("event", {})
+                node_name = event.get("node_name", "")
+
+                # Calculate per-event delta so that the UI sum equals total elapsed time
+                # (not cumulative from start, which would inflate the total when summed)
+                current_event_time = time.time()
+                dur = int(round((current_event_time - last_event_time) * 1000))
+                last_event_time = current_event_time
+
+                # Handle code generation events
+                if node_name == "code_generation" and "code" in event:
+                    code_text = event["code"]
+                    if code_text.strip():
+                        code_content = CodeContent(
+                            code=code_text,
+                            language="python",
+                            type="code",
+                            header={"title": "Code", "icon": "Code"},
+                            duration=dur
+                        )
+
+                        # Store for "Final Code Only" mode
+                        code_contents.append(code_content)
+
+                        # Add immediately only if showing all steps
+                        if show_code_steps == "All Steps":
+                            agent_message.content_blocks[0].contents.append(code_content)
+                            agent_message = await self.send_message(message=agent_message, skip_db_update=True)
+
+                # Handle execution result events
+                elif node_name == "code_execution" and "logs" in event:
+                    logs_text = event["logs"]
+                    if len(logs_text) > 500:
+                        logs_text = logs_text[:500] + "..."
+                    if logs_text.strip():
+                        agent_message.content_blocks[0].contents.append(
+                            TextContent(
+                                text=logs_text,
+                                type="text",
+                                header={"title": "Result", "icon": "FileText"},
+                                duration=dur
+                            )
+                        )
+                        agent_message = await self.send_message(message=agent_message, skip_db_update=True)
+
+                # Handle error events
+                elif node_name == "error" and "error" in event:
+                    error_text = event["error"]
+                    if error_text.strip() and "Code execution exceeded the maximum execution time of 30 seconds" not in error_text:
+                        agent_message.content_blocks[0].contents.append(
+                            TextContent(
+                                text=error_text,
+                                type="text",
+                                header={"title": "Error", "icon": "AlertTriangle"},
+                                duration=dur
+                            )
+                        )
+                        agent_message = await self.send_message(message=agent_message, skip_db_update=True)
+
+                # Handle final answer
+                elif node_name == "final_answer" and "answer" in event:
+                    final_answer = event["answer"]
+
+            # Add final code only if that mode is selected
+            if show_code_steps == "Final Code Only" and code_contents:
+                final_code = code_contents[-1]
+                final_code.header = {"title": "Final Code", "icon": "Code"}
+                agent_message.content_blocks[0].contents.append(final_code)
+
+            # Set final answer
+            agent_message.text = final_answer if final_answer else ""
+            agent_message.properties.state = "complete"
+            agent_message = await self.send_message(message=agent_message)
+
+            logger.info("run_agent completed successfully")
+
+        except Exception as e:
+            error_msg = str(e)
+            # Suppress spurious 30-second timeout errors - these are false positives
+            # The code actually completes successfully but smolagents reports a timeout
+            if "exceeded the maximum execution time of 30 seconds" in error_msg.lower():
+                logger.warning("Ignoring spurious 30-second timeout error - code executed successfully")
+                # Complete the message successfully without error
+                agent_message.text = final_answer if final_answer else ""
+                agent_message.properties.state = "complete"
+                agent_message = await self.send_message(message=agent_message)
+            else:
+                # Real error - display it
+                logger.error(f"Error in run_agent: {e}")
+                agent_message.text = f"Error: {error_msg}"
+                agent_message.properties.state = "complete"
+                agent_message.error = True
+                agent_message = await self.send_message(message=agent_message)
+                raise
+
+        self.status = agent_message
+        return agent_message
+
+    def validate_tool_names(self) -> None:
+        """Override parent's validate_tool_names to provide better error messages for CodeActAgentSmolagents."""
+        import re
+
+        pattern = re.compile(r"^[a-zA-Z0-9_-]+$")
+        if hasattr(self, "tools") and self.tools:
+            for idx, tool in enumerate(self.tools):
+                # Check if tool is a string instead of Tool object
+                if isinstance(tool, str):
+                    error_msg = (
+                        f"Tool at index {idx} is a string '{tool}', not a Tool object.\n"
+                        "CodeActAgentSmolagents requires actual Tool components, not text strings.\n"
+                        "Please connect Tool components (e.g., Calculator, Wikipedia, etc.) to the Tools input.\n"
+                        f"All tools received: {self.tools}"
+                    )
+                    raise TypeError(error_msg)
+
+                # Check if tool has name attribute
+                if not hasattr(tool, "name"):
+                    error_msg = (
+                        f"Tool at index {idx} (type: {type(tool).__name__}) doesn't have a 'name' attribute.\n"
+                        f"Tool object: {tool}\n"
+                        "This suggests an invalid tool connection. Please use valid LangChain Tool components."
+                    )
+                    raise AttributeError(error_msg)
+
+                # Validate tool name pattern
+                if not pattern.match(tool.name):
+                    msg = (
+                        f"Invalid tool name '{tool.name}': must only contain letters, numbers, underscores, dashes,"
+                        " and cannot contain spaces."
+                    )
+                    raise ValueError(msg)
+
+    def create_agent_runnable(self) -> Runnable:
+        """Create the CodeActAgentSmolagents runnable.
+
+        This method:
+        1. Imports the CodeActAgentSmolagents class (from installed package)
+        2. Uses the LLM provided via HandleInput
+        3. Creates and configures the agent
+        4. Wraps it in a Runnable interface
+
+        Returns:
+            CodeActAgentSmolagentsRunnable: A runnable wrapper around the agent
+
+        Raises:
+            ImportError: If CodeActAgentSmolagents cannot be imported
+            ValueError: If no language model is connected
+        """
+        try:
+            # Import from the installed OpenDsStar package
+            try:
+                from agents.codeact_smolagents.codeact_agent_smolagents import CodeActAgentSmolagents
+            except ImportError:
+                # Debugging info
+                import os
+                import sys
+                print("DEBUG: sys.path:", sys.path)
+                print("DEBUG: CWD:", os.getcwd())
+                try:
+                    import agents
+                    print("DEBUG: found agents module at:", agents.__file__)
+                except ImportError:
+                    print("DEBUG: could not import agents module")
+
+                # Retry or re-raise
+                from agents.codeact_smolagents.codeact_agent_smolagents import CodeActAgentSmolagents
+
+        except ImportError as e:
+            # Provide helpful error message
+            error_msg = (
+                f"Cannot import CodeActAgentSmolagents. Please ensure OpenDsStar is properly installed.\n"
+                f"Run: uv pip install -e /path/to/OpenDsStar\n"
+                f"Error: {e}"
+            )
+            # Re-raise to show the error in the UI
+            raise ImportError(error_msg) from e
+
+        # Validate that LLM is connected
+        if not hasattr(self, "llm") or not self.llm:
+            msg = "No language model connected. Please connect a Language Model component to the LLM input."
+            raise ValueError(msg)
+
+        # Get tools - CRITICAL: Access via _inputs to get the actual value
+        # Using getattr might not work if tools haven't been set yet
+        tools = None
+        if hasattr(self, "_inputs") and "tools" in self._inputs:
+            tools = self._inputs["tools"].value
+
+        # Fallback to attribute access if _inputs not available
+        if tools is None:
+            tools = getattr(self, "tools", None)
+
+        # Ensure tools is a list (not None)
+        if tools is None:
+            tools = []
+        elif not isinstance(tools, list):
+            # If a single tool was provided, wrap it in a list
+            tools = [tools]
+
+        # Filter out invalid tools (empty strings, None, whitespace) that Langflow might pass
+        # when no tools are connected. This prevents errors when tools input is left empty.
+        if tools:
+            tools = [t for t in tools if t and not (isinstance(t, str) and not t.strip())]
+
+        # Validate remaining tools format - must be Tool objects with .name and other attributes
+        if tools:
+            for idx, tool in enumerate(tools):
+                if isinstance(tool, str):
+                    error_msg = (
+                        f"Tool at index {idx} is a string '{tool}', not a Tool object.\n"
+                        "This usually means tools weren't properly connected in the flow.\n"
+                        "Please ensure Tool components (not text/strings) are connected to the Tools input.\n"
+                        f"All tools received: {tools}"
+                    )
+                    raise TypeError(error_msg)
+                if not hasattr(tool, "name"):
+                    error_msg = (
+                        f"Tool at index {idx} (type: {type(tool).__name__}) is missing the 'name' attribute.\n"
+                        f"Tool object: {tool}\n"
+                        "Please ensure you're connecting valid LangChain Tool components."
+                    )
+                    raise TypeError(error_msg)
+
+        # Get optional parameters with defaults
+        max_iterations = getattr(self, "max_iterations", 5)
+        system_prompt = getattr(self, "system_prompt", None)
+        code_timeout = getattr(self, "code_timeout", 30)
+
+        # Get the LLM model
+        llm_model = self.llm
+
+        # Create the agent with all configured parameters
+        # Pass the LangChain model directly - CodeActAgentSmolagents can handle it
+        agent = CodeActAgentSmolagents(
+            model=llm_model,
+            temperature=0.0,  # Fixed for now, could be made configurable
+            tools=tools,
+            system_prompt=system_prompt if system_prompt else "You are a helpful assistant that can execute code to solve tasks.",
+            max_steps=max_iterations,
+            code_timeout=code_timeout,
+        )
+
+        # Wrap in runnable interface for LangChain compatibility
+        return CodeActAgentSmolagentsRunnable(agent)

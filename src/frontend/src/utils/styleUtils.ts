@@ -326,6 +326,7 @@ export const SIDEBAR_BUNDLES = [
   { display_name: "AI/ML API", name: "aiml", icon: "AIML" },
   { display_name: "Agentics", name: "agentics", icon: "Agentics" },
   { display_name: "AgentQL", name: "agentql", icon: "AgentQL" },
+  { display_name: "Code Agents", name: "codeagents", icon: "Bot" },
   { display_name: "ALTK", name: "altk", icon: "Zap" },
   {
     display_name: "Language Models",
