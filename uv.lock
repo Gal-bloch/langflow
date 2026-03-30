@@ -6965,7 +6965,7 @@ requires-dist = [
     { name = "numexpr", marker = "extra == 'numexpr'", specifier = "==2.10.2" },
     { name = "onnxruntime", specifier = ">=1.20,<=1.23" },
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.68.2,<2.0.0" },
-    { name = "opendsstar", marker = "python_full_version >= '3.11'", specifier = "==1.0.1" },
+    { name = "opendsstar", marker = "python_full_version >= '3.11'", specifier = "==1.0.6" },
     { name = "openinference-instrumentation-langchain", marker = "extra == 'openinference'", specifier = ">=0.1.29" },
     { name = "openlayer", marker = "extra == 'openlayer'", specifier = ">=0.9.0,<1.0.0" },
     { name = "opensearch-py", marker = "extra == 'opensearch'", specifier = "==2.8.0" },
@@ -7315,7 +7315,7 @@ requires-dist = [
     { name = "markitdown", specifier = ">=0.1.4,<2.0.0" },
     { name = "nanoid", specifier = ">=2.0.0,<3.0.0" },
     { name = "networkx", specifier = ">=3.4.2,<4.0.0" },
-    { name = "opendsstar", marker = "python_full_version >= '3.11'", specifier = "==1.0.1" },
+    { name = "opendsstar", marker = "python_full_version >= '3.11'", specifier = "==1.0.6" },
     { name = "orjson", specifier = ">=3.10.15,<4.0.0" },
     { name = "pandas", specifier = ">=2.0.0,<3.0.0" },
     { name = "passlib", specifier = ">=1.7.4,<2.0.0" },
@@ -8086,20 +8086,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/39/f4/458fbd9c8624aab58deca73468df107201cadc5ca8ea449511d318140de3/metaphor-python-0.1.23.tar.gz", hash = "sha256:ce3a8f9d81b2ee7201dac225095cdf2da34b003fe889c5b4629a8b480e8de7ba", size = 5563, upload-time = "2023-11-30T16:49:45.831Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ff/ef/44b06a7269a596fb23ce0a318c1b2e6e67012624c9122d5a73883c23f9f9/metaphor_python-0.1.23-py3-none-any.whl", hash = "sha256:993b594373efdd5223631f8997dfd68801241db112a214d7c56aeac03fc74b4f", size = 6138, upload-time = "2023-11-30T16:49:43.946Z" },
-]
-
-[[package]]
-name = "milvus-lite"
-version = "2.5.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "tqdm", marker = "python_full_version >= '3.11'" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/b2/acc5024c8e8b6a0b034670b8e8af306ebd633ede777dcbf557eac4785937/milvus_lite-2.5.1-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:6b014453200ba977be37ba660cb2d021030375fa6a35bc53c2e1d92980a0c512", size = 27934713, upload-time = "2025-06-30T04:23:37.028Z" },
-    { url = "https://files.pythonhosted.org/packages/9b/2e/746f5bb1d6facd1e73eb4af6dd5efda11125b0f29d7908a097485ca6cad9/milvus_lite-2.5.1-py3-none-macosx_11_0_arm64.whl", hash = "sha256:a2e031088bf308afe5f8567850412d618cfb05a65238ed1a6117f60decccc95a", size = 24421451, upload-time = "2025-06-30T04:23:51.747Z" },
-    { url = "https://files.pythonhosted.org/packages/2e/cf/3d1fee5c16c7661cf53977067a34820f7269ed8ba99fe9cf35efc1700866/milvus_lite-2.5.1-py3-none-manylinux2014_aarch64.whl", hash = "sha256:a13277e9bacc6933dea172e42231f7e6135bd3bdb073dd2688ee180418abd8d9", size = 45337093, upload-time = "2025-06-30T04:24:06.706Z" },
-    { url = "https://files.pythonhosted.org/packages/d3/82/41d9b80f09b82e066894d9b508af07b7b0fa325ce0322980674de49106a0/milvus_lite-2.5.1-py3-none-manylinux2014_x86_64.whl", hash = "sha256:25ce13f4b8d46876dd2b7ac8563d7d8306da7ff3999bb0d14b116b30f71d706c", size = 55263911, upload-time = "2025-06-30T04:24:19.434Z" },
 ]
 
 [[package]]
@@ -9126,7 +9112,7 @@ wheels = [
 
 [[package]]
 name = "opendsstar"
-version = "1.0.1"
+version = "1.0.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "datasets", marker = "python_full_version >= '3.11'" },
@@ -9143,14 +9129,13 @@ dependencies = [
     { name = "langgraph", marker = "python_full_version >= '3.11'" },
     { name = "litellm", marker = "python_full_version >= '3.11'" },
     { name = "matplotlib", marker = "python_full_version >= '3.11'" },
-    { name = "milvus-lite", marker = "python_full_version >= '3.11'" },
     { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
     { name = "numpy", version = "2.4.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "openai", marker = "python_full_version >= '3.11'" },
     { name = "pandas", marker = "python_full_version >= '3.11'" },
     { name = "plotly", marker = "python_full_version >= '3.11'" },
     { name = "pydantic", marker = "python_full_version >= '3.11'" },
-    { name = "pymilvus", marker = "python_full_version >= '3.11'" },
+    { name = "pymilvus", extra = ["model"], marker = "python_full_version >= '3.11'" },
     { name = "python-dotenv", marker = "python_full_version >= '3.11'" },
     { name = "ragworkbench", marker = "python_full_version >= '3.11'" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -9158,9 +9143,9 @@ dependencies = [
     { name = "smolagents", marker = "python_full_version >= '3.11'" },
     { name = "tqdm", marker = "python_full_version >= '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e5/79/e534dfba4912d6a570ad2782c2bf3a92bc511ecabb169d69bf312775285f/opendsstar-1.0.1.tar.gz", hash = "sha256:2be5b33387c240d2f2b88a7fe74c04d2e54c873759b0eaaba0915c72b46d040b", size = 158458, upload-time = "2026-03-29T12:03:45.612Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/06/caa8e05d7c1e27915d2a8e9c254ab80e922cf5473c8506f629ec6883ed72/opendsstar-1.0.6.tar.gz", hash = "sha256:2aba043d0e1a30d001cf8fab4756c78338d5d0286530ba88c1256b2fcace2539", size = 193592, upload-time = "2026-03-30T11:50:02.439Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/f9/f78737ac7857ee6b5d045d8f79bcf5cd2f4ad5adb7e919cdf94b1c17596a/opendsstar-1.0.1-py3-none-any.whl", hash = "sha256:437dc83ba2593555d68cac3bd8bafa117784b2552cc06361f395d0a4c4c4975f", size = 208890, upload-time = "2026-03-29T12:03:43.871Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/2e/30ab7501032d89e3078e0af5a73a113ae90ac358193137bb95c5259efa99/opendsstar-1.0.6-py3-none-any.whl", hash = "sha256:697c8f6e824bdac2a7a5bae4ee96fe62438181c7d1628ceac22a16f28f637821", size = 255251, upload-time = "2026-03-30T11:50:03.937Z" },
 ]
 
 [[package]]
@@ -11568,6 +11553,28 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b7/d9/860127fcbad19648799b9b36fa38dabae9315ae363871287ec61ce55d3d2/pymilvus-2.6.7.tar.gz", hash = "sha256:d534804af29390d48ae7d6edf66611d6d67963ab5c06ad0b136012e4248cd422", size = 1413085, upload-time = "2026-01-26T13:20:32.603Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/0c/777cf174b8f4f12d458857ad5ede981be0a4b5dc160a98da2654832e34e5/pymilvus-2.6.7-py3-none-any.whl", hash = "sha256:a9fe5f8ea4191c35b53fd99820f802dca3a6efc336c894c59b19e5472545383a", size = 298693, upload-time = "2026-01-26T13:20:30.308Z" },
+]
+
+[package.optional-dependencies]
+model = [
+    { name = "pymilvus-model", marker = "python_full_version >= '3.11'" },
+]
+
+[[package]]
+name = "pymilvus-model"
+version = "0.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "1.26.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.4.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "onnxruntime", marker = "python_full_version >= '3.11'" },
+    { name = "protobuf", marker = "python_full_version >= '3.11'" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "transformers", marker = "python_full_version >= '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0c/8f/a8212f3d932d566fdec354b49befa09174b239c8b8ad25a33b798cee393b/pymilvus_model-0.3.2.tar.gz", hash = "sha256:10ab49a989396943e08555b971f85182ddb50da47076e699a157c9a5ff542872", size = 36268, upload-time = "2025-03-31T08:47:45.007Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5b/ba/b34e3f8c57c453c02daf1a1eff9c4b62a2e89fc10a29bc83fb685155fe14/pymilvus_model-0.3.2-py3-none-any.whl", hash = "sha256:df8a90519a2adc47bd40f37d8c250b0ad0c7aaafc6139b52dc896d5cfda55d35", size = 47699, upload-time = "2025-03-31T08:47:43.372Z" },
 ]
 
 [[package]]
