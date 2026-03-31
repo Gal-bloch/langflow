@@ -417,9 +417,12 @@ class BaseFileComponent(Component, ABC):
             # TODO: Parse according to docling standards
             rows = [data_list[0].data]
 
-        self.status = DataFrame(rows)
+        result = DataFrame(rows)
+        if file_path:
+            result.attrs["source_file_path"] = str(file_path)
+        self.status = result
 
-        return DataFrame(rows)
+        return result
 
     def parse_string_to_dict(self, s: str) -> dict:
         # Try JSON first (handles true/false/null)
