@@ -315,7 +315,7 @@ class CodeActAgentSmolagentsComponent(ToolCallingAgentComponent):
         # Get show_code_steps setting
         show_code_steps = getattr(self, "show_code_steps", "All Steps")
 
-        # Track code contents for "Final Code Only" mode
+        # Track code contents for "Final Code Only" mode as plain code strings
         code_contents = []
         final_answer = ""
 
@@ -344,7 +344,9 @@ class CodeActAgentSmolagentsComponent(ToolCallingAgentComponent):
                     break
 
                 event = event_data.get("event", {})
-                node_name = event.get("node_name", "")
+                node_name_raw = event.get("node_name") or event.get("node") or event.get("event_type") or ""
+                node_name = self._normalize_node_name(node_name_raw)
+                step_idx = event.get("step_idx")
 
                 # Calculate per-event delta so that the UI sum equals total elapsed time
                 # (not cumulative from start, which would inflate the total when summed)
@@ -352,65 +354,99 @@ class CodeActAgentSmolagentsComponent(ToolCallingAgentComponent):
                 dur = int(round((current_event_time - last_event_time) * 1000))
                 last_event_time = current_event_time
 
-                # Handle code generation events
-                if node_name == "code_generation" and "code" in event:
-                    code_text = event["code"]
-                    if code_text.strip():
+                # Build a node summary block, always present
+                from lfx.schema.content_types import ToolContent
+
+                summary_output = []
+                if node_name:
+                    summary_output.append(f"Node: {node_name}")
+                if step_idx is not None:
+                    summary_output.append(f"Step: {step_idx}")
+
+                if event.get("code"):
+                    summary_output.append("Code generated" if node_name.lower().startswith("code_generation") else "Code present")
+                if event.get("logs"):
+                    summary_output.append("Execution logs")
+                if event.get("error"):
+                    summary_output.append("Error encountered")
+
+                agent_message.content_blocks[0].contents.append(
+                    ToolContent(
+                        type="tool_use",
+                        name=node_name or "CodeAct Step",
+                        tool_input={
+                            "step_idx": step_idx,
+                            "node_name": node_name,
+                            **({"code": str(event.get("code", "")).strip()} if event.get("code") else {}),
+                            **({"logs": str(event.get("logs", "")).strip()} if event.get("logs") else {}),
+                            **({"error": str(event.get("error", "")).strip()} if event.get("error") else {}),
+                        },
+                        output="; ".join(summary_output) or "Step event",
+                        error=str(event.get("error", "")) if event.get("error") else None,
+                        header={"title": f"Executed **{node_name or 'Step'}**", "icon": "GitBranch"},
+                        duration=dur,
+                    )
+                )
+
+                # Append code block when requested
+                if "code" in event and str(event.get("code", "")).strip():
+                    code_text = str(event.get("code", "")).strip()
+                    code_contents.append(code_text)
+
+                    if show_code_steps in ("All Steps",):
                         code_content = CodeContent(
                             code=code_text,
                             language="python",
                             type="code",
                             header={"title": "Code", "icon": "Code"},
-                            duration=dur
+                            duration=dur,
                         )
+                        agent_message.content_blocks[0].contents.append(code_content)
 
-                        # Store for "Final Code Only" mode
-                        code_contents.append(code_content)
-
-                        # Add immediately only if showing all steps
-                        if show_code_steps == "All Steps":
-                            agent_message.content_blocks[0].contents.append(code_content)
-                            agent_message = await self.send_message(message=agent_message, skip_db_update=True)
-
-                # Handle execution result events
-                elif node_name == "code_execution" and "logs" in event:
-                    logs_text = event["logs"]
-                    if len(logs_text) > 500:
-                        logs_text = logs_text[:500] + "..."
-                    if logs_text.strip():
+                # Append logs block when requested
+                if "logs" in event and str(event.get("logs", "")).strip():
+                    logs_text = str(event.get("logs", "")).strip()
+                    display_logs = logs_text if len(logs_text) <= 500 else logs_text[:500] + "..."
+                    if show_code_steps in ("All Steps",):
                         agent_message.content_blocks[0].contents.append(
                             TextContent(
-                                text=logs_text,
+                                text=display_logs,
                                 type="text",
-                                header={"title": "Result", "icon": "FileText"},
-                                duration=dur
+                                header={"title": "Execution Output", "icon": "Terminal"},
+                                duration=dur,
                             )
                         )
-                        agent_message = await self.send_message(message=agent_message, skip_db_update=True)
 
-                # Handle error events
-                elif node_name == "error" and "error" in event:
-                    error_text = event["error"]
-                    if error_text.strip() and "Code execution exceeded the maximum execution time of 30 seconds" not in error_text:
-                        agent_message.content_blocks[0].contents.append(
-                            TextContent(
-                                text=error_text,
-                                type="text",
-                                header={"title": "Error", "icon": "AlertTriangle"},
-                                duration=dur
-                            )
+                # Append error block (always show) even in Final Code only mode
+                if "error" in event and str(event.get("error", "")).strip():
+                    error_text = str(event.get("error", "")).strip()
+                    agent_message.content_blocks[0].contents.append(
+                        TextContent(
+                            text=error_text,
+                            type="text",
+                            header={"title": "Error", "icon": "AlertTriangle"},
+                            duration=dur,
                         )
-                        agent_message = await self.send_message(message=agent_message, skip_db_update=True)
+                    )
 
-                # Handle final answer
-                elif node_name == "final_answer" and "answer" in event:
-                    final_answer = event["answer"]
+                # Update final answer
+                if node_name.lower() == "final_answer" and "answer" in event:
+                    final_answer = str(event.get("answer", "")).strip()
+
+                # Send partial updates for stream feedback
+                await self.send_message(message=agent_message, skip_db_update=True)
 
             # Add final code only if that mode is selected
             if show_code_steps == "Final Code Only" and code_contents:
-                final_code = code_contents[-1]
-                final_code.header = {"title": "Final Code", "icon": "Code"}
-                agent_message.content_blocks[0].contents.append(final_code)
+                last_code = code_contents[-1]
+                agent_message.content_blocks[0].contents.append(
+                    CodeContent(
+                        code=last_code,
+                        language="python",
+                        type="code",
+                        header={"title": "Final Code", "icon": "Code"},
+                    )
+                )
 
             # Set final answer
             agent_message.text = final_answer if final_answer else ""
@@ -440,6 +476,28 @@ class CodeActAgentSmolagentsComponent(ToolCallingAgentComponent):
 
         self.status = agent_message
         return agent_message
+
+    @staticmethod
+    def _normalize_node_name(node_name: Any) -> str:
+        """Normalize node names for UI display by stripping common prefixes."""
+        import logging
+        import re
+
+        if not node_name:
+            return ""
+        node_name_str = str(node_name).strip()
+        normalized = node_name_str
+
+        # Use same normalization strategy as OpenDsStar for consistency
+        normalized = re.sub(r"(?i)^(?:NODE\s*N\s*)+", "", normalized).strip()
+        normalized = re.sub(r"(?i)^N[\s:-]+", "", normalized).strip()
+
+        logging.getLogger(__name__).debug(
+            "normalize_node_name: raw=%r normalized=%r",
+            node_name_str,
+            normalized,
+        )
+        return normalized
 
     def validate_tool_names(self) -> None:
         """Override parent's validate_tool_names to provide better error messages for CodeActAgentSmolagents."""
@@ -494,7 +552,7 @@ class CodeActAgentSmolagentsComponent(ToolCallingAgentComponent):
         try:
             # Import from the installed OpenDsStar package
             try:
-                from agents.codeact_smolagents.codeact_agent_smolagents import CodeActAgentSmolagents
+                from OpenDsStar.agents.codeact_smolagents.codeact_agent_smolagents import CodeActAgentSmolagents
             except ImportError:
                 # Debugging info
                 import os

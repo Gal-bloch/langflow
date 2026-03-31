@@ -59,6 +59,8 @@ export function formatToolTitle(rawTitle: string | undefined): string {
 
   return rawTitle
     .replace(/^Executed\s+/i, "")
+    .replace(/^Node\s+/i, "")
+    .replace(/^NODE\s*N\s+/i, "")
     .replace(/_/g, " ")
     .replace(/\*\*/g, "")
     .trim()

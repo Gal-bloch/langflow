@@ -207,7 +207,9 @@ class OpenDsStarAgentRunnable(Runnable):
                 last_trajectory_len = len(trajectory)
 
                 for event in new_events:
-                    node_name = event.get("node_name") or event.get("node") or event.get("event_type", "step")
+                    node_name = self._normalize_node_name(
+                        event.get("node_name") or event.get("node") or event.get("event_type", "step")
+                    )
                     note = event.get("note") or event.get("planned_step") or event.get("code") or event.get("logs")
                     tool_run_id = str(uuid.uuid4())
 
@@ -233,7 +235,7 @@ class OpenDsStarAgentRunnable(Runnable):
 
                 # Also emit a chain stream chunk summarizing notes for backwards compatibility
                 trajectory_text = "\n".join([
-                    f"[{event.get('event_type', 'unknown')}] {event.get('note', '')}"
+                    f"[{self._normalize_node_name(event.get('event_type', 'unknown'))}] {self._normalize_node_name(event.get('note', ''))}"
                     for event in new_events
                 ])
 
@@ -505,7 +507,7 @@ class OpenDsStarAgentComponent(ToolCallingAgentComponent):
                         from lfx.schema.content_types import CodeContent, ToolContent
 
                         step_idx = event.get("step_idx", "?")
-                        node_name = event.get("node_name", event.get("node", ""))
+                        node_name = self._normalize_node_name(event.get("node_name", event.get("node", "")))
                         last_step = event.get("last_step", {})
                         current_time = event.get("time")
 
@@ -519,7 +521,8 @@ class OpenDsStarAgentComponent(ToolCallingAgentComponent):
 
                         exec_logger.debug("trajectory event node=%s step=%s", node_name, step_idx)
                         raw_event_type = event.get("event_type", "")
-                        event_type = raw_event_type.strip() if isinstance(raw_event_type, str) else raw_event_type
+                        event_type_raw = raw_event_type.strip() if isinstance(raw_event_type, str) else raw_event_type
+                        event_type = self._normalize_node_name(event_type_raw)
                         event_note = event.get("note", "")
                         plan = event.get("planned_step", "")
                         code = event.get("code", "")
@@ -559,6 +562,7 @@ class OpenDsStarAgentComponent(ToolCallingAgentComponent):
                             return text
 
                         node_title = node_name or event_type or "unknown"
+                        node_title = self._normalize_node_name(node_title)
                         summary_parts = []
                         if event_type:
                             summary_parts.append(f"Type: {event_type}")
@@ -600,11 +604,11 @@ class OpenDsStarAgentComponent(ToolCallingAgentComponent):
                         agent_message.content_blocks[0].contents.append(
                             ToolContent(
                                 type="tool_use",
-                                name=f"Node {node_title}",
+                                name=node_title,
                                 tool_input=node_tool_input,
                                 output="\n".join(summary_parts),
                                 error=None,
-                                header={"title": f"Executed **Node {node_title}**", "icon": "GitBranch"},
+                                header={"title": f"Executed **{node_title}**", "icon": "GitBranch"},
                                 duration=duration_ms,
                             )
                         )
@@ -795,6 +799,27 @@ class OpenDsStarAgentComponent(ToolCallingAgentComponent):
             # remove url from text
             text = text.replace(url, "").strip()
         return text
+
+    @staticmethod
+    def _normalize_node_name(node_name: Any) -> str:
+        """Normalize node names for UI display by stripping OpenDsStar prefixes."""
+        if not node_name:
+            return ""
+        node_name_str = str(node_name).strip()
+        # Remove repeated/variant prefix patterns like "NODE N", "node n" and "NODE N NODE N".
+        normalized = re.sub(r"(?i)^(?:NODE\s*N\s*)+", "", node_name_str).strip()
+
+        # Also remove a standalone leading "N" that may remain, e.g. "N PLAN ONE".
+        normalized = re.sub(r"(?i)^N[\s:-]+", "", normalized).strip()
+
+        # Debug assistance: ensure this method is hit and normalization is applied.
+        logging.getLogger(__name__).debug(
+            "normalize_node_name: raw=%r normalized=%r",
+            node_name_str,
+            normalized,
+        )
+
+        return normalized
 
     def validate_tool_names(self) -> None:
         """Override parent's validate_tool_names to provide better error messages for OpenDsStar Agent."""
