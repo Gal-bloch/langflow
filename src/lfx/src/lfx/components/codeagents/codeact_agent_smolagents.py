@@ -504,6 +504,7 @@ class CodeActAgentSmolagentsComponent(ToolCallingAgentComponent):
         import re
 
         pattern = re.compile(r"^[a-zA-Z0-9_-]+$")
+
         if hasattr(self, "tools") and self.tools:
             for idx, tool in enumerate(self.tools):
                 # Check if tool is a string instead of Tool object
@@ -532,6 +533,42 @@ class CodeActAgentSmolagentsComponent(ToolCallingAgentComponent):
                         " and cannot contain spaces."
                     )
                     raise ValueError(msg)
+
+    @staticmethod
+    def _normalize_llm_model(llm_model):
+        """Normalize incoming LangFlow LLMs to a format acceptable by CodeActAgentSmolagents."""
+        from langchain_core.language_models import BaseChatModel, BaseLanguageModel
+
+        # Accept all LangFlow model forms directly.
+        if llm_model is None:
+            raise ValueError("No language model connected. Please connect a Language Model component to the LLM input.")
+
+        # Preserve string IDs so OpenDsStar wrapper can accept them.
+        if isinstance(llm_model, str):
+            return llm_model
+
+        # Direct LangChain model support (BaseChatModel/BaseLanguageModel).
+        if isinstance(llm_model, (BaseChatModel, BaseLanguageModel)):
+            return llm_model
+
+        # smolagents built model support
+        try:
+            from smolagents import LiteLLMModel
+
+            if isinstance(llm_model, LiteLLMModel):
+                return llm_model
+        except ImportError:
+            pass
+
+        # If a wrapper object holds an LLM instance, extract it.
+        for attr in ("llm", "model", "base_model"):
+            if hasattr(llm_model, attr):
+                candidate = getattr(llm_model, attr)
+                if candidate and candidate is not llm_model:
+                    return CodeActAgentSmolagentsComponent._normalize_llm_model(candidate)
+
+        # Fall back to pass through, they may still be valid if CodeAct understands it.
+        return llm_model
 
     def create_agent_runnable(self) -> Runnable:
         """Create the CodeActAgentSmolagents runnable.
@@ -630,7 +667,7 @@ class CodeActAgentSmolagentsComponent(ToolCallingAgentComponent):
         code_timeout = getattr(self, "code_timeout", 30)
 
         # Get the LLM model
-        llm_model = self.llm
+        llm_model = self._normalize_llm_model(getattr(self, "llm", None))
 
         # Create the agent with all configured parameters
         # Pass the LangChain model directly - CodeActAgentSmolagents can handle it
