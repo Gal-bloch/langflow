@@ -6,9 +6,15 @@ a specific file's content by providing its path.
 
 from __future__ import annotations
 
+import io
+from pathlib import Path
+
+import pandas as pd
+
 from lfx.custom.custom_component.component import Component
 from lfx.io import HandleInput, Output, QueryInput
 from lfx.schema.data import Data
+from lfx.schema.dataframe import DataFrame
 from lfx.schema.message import Message
 
 
@@ -44,6 +50,16 @@ class FileContentRetrieverComponent(Component):
             name="content",
             method="retrieve_content",
         ),
+        Output(
+            display_name="Table",
+            name="dataframe",
+            method="as_dataframe",
+            info="Retrieves file content as a DataFrame table. "
+            "Input: File path (str) of a tabular data file (CSV, Excel, Parquet, JSON, or TSV). "
+            "Example: 'data/sales.csv' or 'reports/metrics.xlsx'. "
+            "Returns: A DataFrame containing the file's tabular data. "
+            "Raises ValueError if the file is not a supported tabular format.",
+        ),
     ]
 
     def _build_file_map(self) -> dict[str, str]:
@@ -78,3 +94,91 @@ class FileContentRetrieverComponent(Component):
             return Message(text=f"File '{query}' not found. Available files: {available}")
 
         return Message(text=content)
+
+    def as_dataframe(self) -> DataFrame:
+        """Retrieve file content as a DataFrame for tabular data files.
+
+        Returns:
+            DataFrame: The file content as a pandas DataFrame.
+
+        Raises:
+            ValueError: If no file path is provided, file not found, or file type is not supported.
+        """
+        # Supported tabular file extensions
+        tabular_extensions = {".csv", ".xlsx", ".xls", ".parquet", ".json", ".tsv"}
+
+        query = self.file_path
+
+        if not query:
+            msg = "No file path provided. Please specify a file path."
+            raise ValueError(msg)
+
+        # Check file extension
+        file_ext = Path(query).suffix.lower()
+        if file_ext not in tabular_extensions:
+            supported = ", ".join(sorted(tabular_extensions))
+            msg = (
+                f"File type '{file_ext}' is not supported for DataFrame conversion. "
+                f"Supported formats: {supported}. "
+                f"File: '{query}'"
+            )
+            raise ValueError(msg)
+
+        # First, check if we already have a DataFrame for this file
+        for item in self.file_data:
+            if isinstance(item, DataFrame):
+                fp = item.attrs.get("source_file_path", "")
+                if fp == query:
+                    return item
+
+        # If not found as DataFrame, try to find as Data and convert
+        file_content = None
+        for item in self.file_data:
+            if isinstance(item, Data):
+                fp = item.data.get("file_path", "")
+                if fp == query:
+                    file_content = item.get_text()
+                    break
+
+        if file_content is None:
+            # Build list of available files for error message
+            available_files = []
+            for item in self.file_data:
+                if isinstance(item, DataFrame):
+                    fp = item.attrs.get("source_file_path", "")
+                    if fp:
+                        available_files.append(fp)
+                elif isinstance(item, Data):
+                    fp = item.data.get("file_path", "")
+                    if fp:
+                        available_files.append(fp)
+
+            if available_files:
+                msg = f"File '{query}' not found. Available files: {available_files}"
+            else:
+                msg = f"File '{query}' not found. No files available in the input data."
+            raise ValueError(msg)
+
+        # Convert file content to DataFrame based on file type
+        try:
+            if file_ext == ".csv":
+                df = pd.read_csv(io.StringIO(file_content))
+            elif file_ext == ".tsv":
+                df = pd.read_csv(io.StringIO(file_content), sep="\t")
+            elif file_ext in {".xlsx", ".xls"}:
+                df = pd.read_excel(io.BytesIO(file_content.encode()))
+            elif file_ext == ".parquet":
+                df = pd.read_parquet(io.BytesIO(file_content.encode()))
+            elif file_ext == ".json":
+                df = pd.read_json(io.StringIO(file_content))
+            else:
+                msg = f"Unexpected file extension '{file_ext}' passed validation."
+                raise ValueError(msg)
+        except Exception as e:
+            msg = f"Failed to parse file '{query}' as {file_ext.upper()} format. Error: {e!s}"
+            raise ValueError(msg) from e
+        else:
+            # Convert to Langflow DataFrame and preserve file path in attrs
+            result = DataFrame(df)
+            result.attrs["source_file_path"] = query
+            return result

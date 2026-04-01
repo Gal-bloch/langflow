@@ -385,7 +385,8 @@ class Component(CustomComponent):
         new_component = type(self)(**kwargs)
         new_component._code = self._code
         new_component._outputs_map = self._outputs_map
-        new_component._inputs = deepcopy(self._inputs, memo)
+        # Shallow copy _inputs to avoid pickling RLock objects in nested Pydantic models
+        new_component._inputs = dict(self._inputs)
         new_component._edges = self._edges
         new_component._components = self._components
         new_component._parameters = dict(self._parameters)

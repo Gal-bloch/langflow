@@ -85,8 +85,27 @@ class LCVectorStoreComponent(Component):
             display_name="Search Results",
             name="search_results",
             method="search_documents",
+            info=(
+                "Performs semantic similarity search in the vector store to find relevant documents/files. "
+                "Input: A natural language search query (str) describing the content you're looking for. "
+                "Example: 'machine learning tutorials' or 'financial reports from 2023'. "
+                "Returns: A list of Data objects containing the most relevant documents/files "
+                "based on semantic similarity, limited by the number of results parameter."
+            ),
         ),
-        Output(display_name="Table", name="dataframe", method="as_dataframe"),
+        Output(
+            display_name="Table",
+            name="dataframe",
+            method="as_dataframe",
+            info=(
+                "Performs semantic similarity search in the vector store to find relevant documents/files "
+                "and returns results as a DataFrame table. "
+                "Input: A natural language search query (str) describing the content you're looking for. "
+                "Example: 'machine learning tutorials' or 'financial reports from 2023'. "
+                "Returns: A DataFrame containing the matching documents/files with their content "
+                "and metadata in tabular format."
+            ),
+        ),
     ]
 
     def _validate_outputs(self) -> None:
