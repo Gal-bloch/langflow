@@ -51,26 +51,27 @@ class TestFileContentRetrieverComponent(ComponentTestBaseWithoutClient):
         assert result.text == "content1"
 
     def test_retrieve_content_file_not_found(self, component_class, default_kwargs):
-        """Test error message when file not found - lists available files."""
+        """Test error raised when file not found - lists available files."""
         component = component_class()
         default_kwargs["file_path"] = "nonexistent.txt"
         component.set_attributes(default_kwargs)
-        result = component.retrieve_content()
 
-        assert isinstance(result, Message)
-        assert "not found" in result.text
-        assert "file1.txt" in result.text
-        assert "file2.txt" in result.text
+        with pytest.raises(ValueError, match="not found") as exc_info:
+            component.retrieve_content()
+
+        error_msg = str(exc_info.value)
+        assert "file1.txt" in error_msg
+        assert "file2.txt" in error_msg
 
     def test_retrieve_content_empty_path(self, component_class, default_kwargs):
-        """Test handling of empty file path."""
+        """Test handling of empty file path - returns empty message during build."""
         component = component_class()
         default_kwargs["file_path"] = ""
         component.set_attributes(default_kwargs)
         result = component.retrieve_content()
 
         assert isinstance(result, Message)
-        assert result.text == "No file path provided."
+        assert result.text == ""
 
     def test_retrieve_content_with_dataframe_input(self, component_class):
         """Test retrieving content from DataFrame input - converts to string."""
