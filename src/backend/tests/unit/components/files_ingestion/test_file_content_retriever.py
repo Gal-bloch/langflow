@@ -209,6 +209,31 @@ class TestFileContentRetrieverComponent(ComponentTestBaseWithoutClient):
         assert result is langflow_df
         assert len(result) == 3
 
+    def test_as_dataframe_returns_dataframe_with_file_path_in_columns(self, component_class):
+        """Test that DataFrame with file_path in columns (not attrs) is found and returned."""
+        # This simulates the output from Read File component's load_files() method
+        # which creates a DataFrame with file_path in the data columns, not in attrs
+        df = pd.DataFrame(
+            {
+                "file_path": ["/path/to/data.csv", "/path/to/data.csv"],
+                "text": ["row1 content", "row2 content"],
+                "col1": [1, 2],
+            }
+        )
+        langflow_df = DataFrame(df)
+        # Note: NO source_file_path in attrs, only in columns
+
+        component = component_class()
+        component.set_attributes({"file_data": [langflow_df], "file_path": "/path/to/data.csv"})
+
+        result = component.retrieve_content_as_dataframe()
+
+        assert isinstance(result, DataFrame)
+        assert result is langflow_df
+        assert len(result) == 2
+        assert "file_path" in result.columns
+        assert (result["file_path"] == "/path/to/data.csv").all()
+
     def test_as_dataframe_empty_file_path_returns_empty_dataframe(self, component_class):
         """Test that empty file_path returns empty DataFrame (for build phase)."""
         component = component_class()
@@ -282,8 +307,9 @@ class TestFileContentRetrieverComponent(ComponentTestBaseWithoutClient):
         component = component_class()
         component.set_attributes({"file_data": [], "file_path": ""})
 
-        file_map = component._build_file_map()
-        assert file_map == {}
+        text_map, dataframe_map = component._get_file_maps()
+        assert text_map == {}
+        assert dataframe_map == {}
 
     def test_build_file_map_data_only(self, component_class):
         """Test building file map with only Data objects."""
@@ -298,10 +324,11 @@ class TestFileContentRetrieverComponent(ComponentTestBaseWithoutClient):
             }
         )
 
-        file_map = component._build_file_map()
-        assert len(file_map) == 2
-        assert file_map["file1.txt"] == "content1"
-        assert file_map["file2.txt"] == "content2"
+        text_map, dataframe_map = component._get_file_maps()
+        assert len(text_map) == 2
+        assert text_map["file1.txt"] == "content1"
+        assert text_map["file2.txt"] == "content2"
+        assert len(dataframe_map) == 0
 
     def test_build_file_map_dataframe_only(self, component_class):
         """Test building file map with only DataFrame objects."""
@@ -314,10 +341,13 @@ class TestFileContentRetrieverComponent(ComponentTestBaseWithoutClient):
         component = component_class()
         component.set_attributes({"file_data": [df1, df2], "file_path": ""})
 
-        file_map = component._build_file_map()
-        assert len(file_map) == 2
-        assert "data1.csv" in file_map
-        assert "data2.csv" in file_map
+        text_map, dataframe_map = component._get_file_maps()
+        assert len(text_map) == 2
+        assert "data1.csv" in text_map
+        assert "data2.csv" in text_map
+        assert len(dataframe_map) == 2
+        assert "data1.csv" in dataframe_map
+        assert "data2.csv" in dataframe_map
 
     def test_build_file_map_duplicate_paths_last_wins(self, component_class):
         """Test that duplicate file paths use the last occurrence."""
@@ -332,8 +362,8 @@ class TestFileContentRetrieverComponent(ComponentTestBaseWithoutClient):
             }
         )
 
-        file_map = component._build_file_map()
-        assert file_map["dup.txt"] == "second"
+        text_map, _ = component._get_file_maps()
+        assert text_map["dup.txt"] == "second"
 
     def test_build_file_map_mixed_with_and_without_paths(self, component_class):
         """Test mixed inputs where some have paths and some don't."""
@@ -356,10 +386,12 @@ class TestFileContentRetrieverComponent(ComponentTestBaseWithoutClient):
             }
         )
 
-        file_map = component._build_file_map()
-        assert len(file_map) == 2
-        assert "file.txt" in file_map
-        assert "has_path.csv" in file_map
+        text_map, dataframe_map = component._get_file_maps()
+        assert len(text_map) == 2
+        assert "file.txt" in text_map
+        assert "has_path.csv" in text_map
+        assert len(dataframe_map) == 1
+        assert "has_path.csv" in dataframe_map
 
     def test_build_file_map_unsupported_types_skipped(self, component_class):
         """Test that unsupported types in file_data are skipped."""
@@ -375,9 +407,9 @@ class TestFileContentRetrieverComponent(ComponentTestBaseWithoutClient):
             }
         )
 
-        file_map = component._build_file_map()
-        assert len(file_map) == 1
-        assert "file.txt" in file_map
+        text_map, _ = component._get_file_maps()
+        assert len(text_map) == 1
+        assert "file.txt" in text_map
 
 
 # Made with Bob
