@@ -810,6 +810,8 @@ export const BUNDLES_SIDEBAR_FOLDER_NAMES = [
   "pgvector",
   "codeagents",
   "Code Agents",
+  "files_ingestion",
+  "File Processing",
 ];
 
 export const AUTHORIZED_DUPLICATE_REQUESTS = [
