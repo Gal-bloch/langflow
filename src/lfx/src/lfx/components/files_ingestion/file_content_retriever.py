@@ -49,6 +49,7 @@ class FileContentRetrieverComponent(Component):
             display_name="File Content",
             name="content",
             method="retrieve_content",
+            tool_mode=True,
         ),
         Output(
             display_name="Table",
@@ -59,6 +60,7 @@ class FileContentRetrieverComponent(Component):
             "Example: 'data/sales.csv' or 'reports/metrics.xlsx'. "
             "Returns: A DataFrame containing the file's tabular data. "
             "Raises ValueError if the file is not a supported tabular format.",
+            tool_mode=True,
         ),
     ]
 
