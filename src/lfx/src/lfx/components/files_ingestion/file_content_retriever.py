@@ -39,7 +39,10 @@ class FileContentRetrieverComponent(Component):
         QueryInput(
             name="file_path",
             display_name="File Path",
-            info="Path of the file to retrieve content for.",
+            info=(
+                "The full file path as a string (e.g., '/path/to/file.csv'). "
+                "Do not pass search results or other objects."
+            ),
             tool_mode=True,
         ),
     ]
@@ -49,17 +52,23 @@ class FileContentRetrieverComponent(Component):
             display_name="File Content",
             name="content",
             method="retrieve_content",
+            info="Retrieves file content as text. "
+            "IMPORTANT: Pass ONLY the file path as a string argument (e.g., '/Users/name/document.txt'). "
+            "Do NOT pass search results, Data objects, or other complex types. "
+            "Returns: A Message containing the file's text content. "
+            "Raises ValueError if file path is missing or file not found.",
             tool_mode=True,
         ),
         Output(
             display_name="Table",
             name="dataframe",
             method="retrieve_content_as_dataframe",
-            info="Retrieves file content as a DataFrame table. "
-            "Input: File path (str) of a tabular data file (CSV, Excel, Parquet, JSON, or TSV). "
-            "Example: 'data/sales.csv' or 'reports/metrics.xlsx'. "
-            "Returns: A DataFrame containing the file's tabular data. "
-            "Raises ValueError if the file is not a supported tabular format.",
+            info="Retrieves file content as a pandas DataFrame. "
+            "IMPORTANT: Pass ONLY the file path as a string argument (e.g., '/Users/name/data.csv'). "
+            "Do NOT pass search results, Data objects, or other complex types. "
+            "Supported formats: CSV, Excel (.xlsx, .xls), Parquet, JSON, TSV. "
+            "Returns: A DataFrame with the file's tabular data. "
+            "Raises ValueError if file not found, unsupported format, or parsing fails.",
             tool_mode=True,
         ),
     ]
@@ -83,17 +92,29 @@ class FileContentRetrieverComponent(Component):
         return file_map
 
     def retrieve_content(self) -> Message:
+        """Retrieve file content as text.
+
+        Returns:
+            Message: The file content as text.
+
+        Raises:
+            ValueError: If file not found (only when called as a tool with a path).
+        """
         file_map = self._build_file_map()
         query = self.file_path
 
         if not query:
-            return Message(text="No file path provided.")
+            # During build phase, file_path may not be set yet
+            # Return empty message to allow build to complete
+            # When called as a tool, file_path will be provided by the agent
+            return Message(text="")
 
         content = file_map.get(query)
 
         if content is None:
             available = list(file_map.keys())
-            return Message(text=f"File '{query}' not found. Available files: {available}")
+            msg = f"File '{query}' not found. Available files: {available}"
+            raise ValueError(msg)
 
         return Message(text=content)
 
@@ -104,7 +125,7 @@ class FileContentRetrieverComponent(Component):
             DataFrame: The file content as a pandas DataFrame.
 
         Raises:
-            ValueError: If no file path is provided, file not found, or file type is not supported.
+            ValueError: If no file path provided, file not found, or file type is not supported.
         """
         # Supported tabular file extensions
         tabular_extensions = {".csv", ".xlsx", ".xls", ".parquet", ".json", ".tsv"}
@@ -181,8 +202,8 @@ class FileContentRetrieverComponent(Component):
         except Exception as e:
             msg = f"Failed to parse file '{query}' as {file_ext.upper()} format. Error: {e!s}"
             raise ValueError(msg) from e
-        else:
-            # Convert to Langflow DataFrame and preserve file path in attrs
-            result = DataFrame(df)
-            result.attrs["source_file_path"] = query
-            return result
+
+        # Convert to Langflow DataFrame and preserve file path in attrs
+        result = DataFrame(df)
+        result.attrs["source_file_path"] = query
+        return result

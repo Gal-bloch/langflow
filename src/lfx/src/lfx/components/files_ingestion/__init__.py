@@ -6,16 +6,16 @@ from lfx.components._importing import import_mod
 
 if TYPE_CHECKING:
     from .file_content_retriever import FileContentRetrieverComponent
-    from .ingestion_describer import IngestionDescriberComponent
+    from .file_description_generator import FileDescriptionGeneratorComponent
 
 _dynamic_imports = {
     "FileContentRetrieverComponent": "file_content_retriever",
-    "IngestionDescriberComponent": "ingestion_describer",
+    "FileDescriptionGeneratorComponent": "file_description_generator",
 }
 
 __all__ = [
     "FileContentRetrieverComponent",
-    "IngestionDescriberComponent",
+    "FileDescriptionGeneratorComponent",
 ]
 
 
