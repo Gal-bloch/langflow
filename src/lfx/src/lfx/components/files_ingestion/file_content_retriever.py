@@ -101,8 +101,10 @@ class FileContentRetrieverComponent(Component):
                 # Check attrs first
                 fp = item.attrs.get("source_file_path", "")
                 if fp:
-                    text_map[fp] = item.to_string()
+                    # Store DataFrame directly for efficient retrieval
                     dataframe_map[fp] = item
+                    # Convert to CSV format for text representation (not to_string() which is formatted output)
+                    text_map[fp] = item.to_csv(index=False)
                 # Also check file_path column in DataFrame data
                 elif not item.empty and "file_path" in item.columns:
                     # Get unique file paths from the DataFrame
@@ -110,8 +112,8 @@ class FileContentRetrieverComponent(Component):
                     for path in unique_paths:
                         path_str = str(path)
                         if path_str:
-                            text_map[path_str] = item.to_string()
                             dataframe_map[path_str] = item
+                            text_map[path_str] = item.to_csv(index=False)
             elif isinstance(item, Data):
                 fp = item.data.get("file_path", "")
                 text = item.get_text() or ""
