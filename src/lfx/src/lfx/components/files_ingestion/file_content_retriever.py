@@ -54,7 +54,7 @@ class FileContentRetrieverComponent(Component):
         Output(
             display_name="Table",
             name="dataframe",
-            method="as_dataframe",
+            method="retrieve_content_as_dataframe",
             info="Retrieves file content as a DataFrame table. "
             "Input: File path (str) of a tabular data file (CSV, Excel, Parquet, JSON, or TSV). "
             "Example: 'data/sales.csv' or 'reports/metrics.xlsx'. "
@@ -97,7 +97,7 @@ class FileContentRetrieverComponent(Component):
 
         return Message(text=content)
 
-    def as_dataframe(self) -> DataFrame:
+    def retrieve_content_as_dataframe(self) -> DataFrame:
         """Retrieve file content as a DataFrame for tabular data files.
 
         Returns:
