@@ -28,6 +28,11 @@ class FileContentRetrieverComponent(Component):
     name = "FileContentRetriever"
     add_tool_output = True
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._cached_text_map: dict[str, str] | None = None
+        self._cached_dataframe_map: dict[str, DataFrame] | None = None
+
     inputs = [
         HandleInput(
             name="file_data",
@@ -73,23 +78,51 @@ class FileContentRetrieverComponent(Component):
         ),
     ]
 
-    def _build_file_map(self) -> dict[str, str]:
-        """Build a lookup map from file paths to their text content."""
+    def _get_file_maps(self) -> tuple[dict[str, str], dict[str, DataFrame]]:
+        """Get cached file maps or build them if not cached.
+
+        Returns:
+            tuple: (text_map, dataframe_map)
+                - text_map: file_path -> text content
+                - dataframe_map: file_path -> DataFrame
+        """
+        # Return cached maps if available
+        if self._cached_text_map is not None and self._cached_dataframe_map is not None:
+            return self._cached_text_map, self._cached_dataframe_map
+
+        # Build maps
         from lfx.schema.dataframe import DataFrame
 
-        file_map: dict[str, str] = {}
+        text_map: dict[str, str] = {}
+        dataframe_map: dict[str, DataFrame] = {}
+
         for item in self.file_data:
             if isinstance(item, DataFrame):
+                # Check attrs first
                 fp = item.attrs.get("source_file_path", "")
                 if fp:
-                    file_map[fp] = item.to_string()
+                    text_map[fp] = item.to_string()
+                    dataframe_map[fp] = item
+                # Also check file_path column in DataFrame data
+                elif not item.empty and "file_path" in item.columns:
+                    # Get unique file paths from the DataFrame
+                    unique_paths = item["file_path"].dropna().unique()
+                    for path in unique_paths:
+                        path_str = str(path)
+                        if path_str:
+                            text_map[path_str] = item.to_string()
+                            dataframe_map[path_str] = item
             elif isinstance(item, Data):
                 fp = item.data.get("file_path", "")
                 text = item.get_text() or ""
                 if fp:
-                    file_map[fp] = text
+                    text_map[fp] = text
 
-        return file_map
+        # Cache the maps
+        self._cached_text_map = text_map
+        self._cached_dataframe_map = dataframe_map
+
+        return text_map, dataframe_map
 
     def retrieve_content(self) -> Message:
         """Retrieve file content as text.
@@ -100,7 +133,7 @@ class FileContentRetrieverComponent(Component):
         Raises:
             ValueError: If file not found (only when called as a tool with a path).
         """
-        file_map = self._build_file_map()
+        text_map, _ = self._get_file_maps()
         query = self.file_path
 
         if not query:
@@ -109,10 +142,10 @@ class FileContentRetrieverComponent(Component):
             # When called as a tool, file_path will be provided by the agent
             return Message(text="")
 
-        content = file_map.get(query)
+        content = text_map.get(query)
 
         if content is None:
-            available = list(file_map.keys())
+            available = list(text_map.keys())
             msg = f"File '{query}' not found. Available files: {available}"
             raise ValueError(msg)
 
@@ -149,37 +182,20 @@ class FileContentRetrieverComponent(Component):
             )
             raise ValueError(msg)
 
-        # First, check if we already have a DataFrame for this file
-        for item in self.file_data:
-            if isinstance(item, DataFrame):
-                fp = item.attrs.get("source_file_path", "")
-                if fp == query:
-                    return item
+        # Get cached maps (built once and reused)
+        text_map, dataframe_map = self._get_file_maps()
 
-        # If not found as DataFrame, try to find as Data and convert
-        file_content = None
-        for item in self.file_data:
-            if isinstance(item, Data):
-                fp = item.data.get("file_path", "")
-                if fp == query:
-                    file_content = item.get_text()
-                    break
+        # Check if we have a DataFrame for this file
+        if query in dataframe_map:
+            return dataframe_map[query]
+
+        # If not found as DataFrame, try to find as text and convert
+        file_content = text_map.get(query)
 
         if file_content is None:
-            # Build list of available files for error message
-            available_files = []
-            for item in self.file_data:
-                if isinstance(item, DataFrame):
-                    fp = item.attrs.get("source_file_path", "")
-                    if fp:
-                        available_files.append(fp)
-                elif isinstance(item, Data):
-                    fp = item.data.get("file_path", "")
-                    if fp:
-                        available_files.append(fp)
-
-            if available_files:
-                msg = f"File '{query}' not found. Available files: {available_files}"
+            available = list(text_map.keys())
+            if available:
+                msg = f"File '{query}' not found. Available files: {available}"
             else:
                 msg = f"File '{query}' not found. No files available in the input data."
             raise ValueError(msg)
