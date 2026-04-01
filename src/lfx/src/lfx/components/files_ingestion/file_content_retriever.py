@@ -112,8 +112,10 @@ class FileContentRetrieverComponent(Component):
         query = self.file_path
 
         if not query:
-            msg = "No file path provided. Please specify a file path."
-            raise ValueError(msg)
+            # During build phase, file_path may not be set yet
+            # Return empty DataFrame to allow build to complete
+            # When called as a tool, file_path will be provided by the agent
+            return DataFrame(pd.DataFrame())
 
         # Check file extension
         file_ext = Path(query).suffix.lower()
