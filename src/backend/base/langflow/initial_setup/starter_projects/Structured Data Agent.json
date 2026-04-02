@@ -5530,7 +5530,7 @@
         "data": {
           "id": "note-fTHa3",
           "node": {
-            "description": "# README 📚\nOpenDsStar is an open-source framework by IBM for building autonomous data science agents. It provides a tool-based implementation of the DS-STAR approach, a method originally introduced by Google.\n\nThe framework focuses on delivering a high-performance agent for working with tabular data, such as Excel and CSV files. It enables efficient analysis, transformation, and reasoning over structured datasets, making it especially useful for real-world data science tasks that rely on tables.",
+            "description": "# README 📚\nOpenDsStar is an open-source framework for building autonomous data science agents. It provides a tool-based implementation of the DS-STAR approach, a method originally introduced by Google.\n\nThe framework focuses on delivering a high-performance agent for working with tabular data, such as Excel and CSV files. It enables efficient analysis, transformation, and reasoning over structured datasets, making it especially useful for real-world data science tasks that rely on tables. \n1. Add files and run the ingestion flow \n2.The agent is ready to be used",
             "display_name": "",
             "documentation": "",
             "template": {
@@ -5562,7 +5562,7 @@
       "zoom": 0.5379076819131174
     }
   },
-  "description": "OpenDsStar is an open-source framework by IBM for building autonomous data science agents. It provides a tool-based implementation of the DS-STAR approach, a method originally introduced by Google.",
+  "description": "OpenDsStar is an open-source framework for building autonomous data science agents. It provides a tool-based implementation of the DS-STAR approach, a method originally introduced by Google.",
   "endpoint_name": null,
   "id": "b702d558-7c4b-41bc-8bfc-6259b1b0e312",
   "is_component": false,
